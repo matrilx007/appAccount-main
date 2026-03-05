@@ -1,0 +1,55 @@
+name: Build and Deploy Go App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ 拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ 安装 Go
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      # 3️⃣ 构建 Linux 可执行文件
+      - name: Build Go binary
+        run: |
+          mkdir -p build
+          export GOOS=linux
+          export GOARCH=amd64
+          go build -o build/myapp main.go
+
+      # 4️⃣ 上传可执行文件到服务器临时目录
+      - name: Upload binary to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: "142.171.27.94"
+          username: "root"
+          password: "qm37KaEGt98lP0vV3S"
+          port: 22
+          source: "build/myapp"
+          target: "/tmp"       # 上传到临时目录，避免目录创建问题
+
+      # 5️⃣ 移动到 /usr/local/bin 并重启服务
+      - name: Move binary and restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: "142.171.27.94"
+          username: "root"
+          password: "qm37KaEGt98lP0vV3S"
+          port: 22
+          script: |
+            rm -rf /usr/local/bin/myapp
+            mv /tmp/build/myapp /usr/local/bin/myapp
+            chmod 777 /usr/local/bin/myapp
+            systemctl restart myapp
+            systemctl status myapp --no-pager
